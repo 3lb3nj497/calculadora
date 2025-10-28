@@ -2,141 +2,199 @@ import 'package:flutter/material.dart';
 import 'calculator.dart';
 
 void main() {
-  runApp(CalculadoraApp());
+  runApp(const CalculadoraApp());
 }
 
 class CalculadoraApp extends StatelessWidget {
+  const CalculadoraApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: _CalculatorScreen());
+    return MaterialApp(
+      title: 'Calculadora',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(),
+      home: const CalculadoraScreen(),
+    );
   }
 }
 
-class _CalculatorScreen extends StatefulWidget {
+class CalculadoraScreen extends StatefulWidget {
+  const CalculadoraScreen({super.key});
+
   @override
-  _CalculatorScreenState createState() => _CalculatorScreenState();
+  State<CalculadoraScreen> createState() => _CalculadoraScreenState();
 }
 
-class _CalculatorScreenState extends State<_CalculatorScreen> {
-  String display = '0';
-  double num1 = 0.0;
-  double num2 = 0.0;
-  String operation = '';
+class _CalculadoraScreenState extends State<CalculadoraScreen> {
+  String expresion = '';
+  String resultadoPrevio = '';
+  bool mostrarResultadoFinal = false;
 
-  void onButtonPressed(String value) {
+  void agregarValor(String valor) {
     setState(() {
-      if (value == 'C') {
-        display = '0';
-        num1 = 0.0;
-        num2 = 0.0;
-        operation = '';
-      } else if (value == '+' || value == '-' || value == '*' || value == '/') {
-        operation = value;
-        num1 = double.tryParse(display) ?? 0.0;
-        display = '0';
-      } else if (value == '=') {
-        num2 = double.tryParse(display) ?? 0.0;
-        double result = 0.0;
-        //try {
-        switch (operation) {
-          case '+':
-            result = suma(num1.toDouble(), num2.toDouble()).toDouble();
-            break;
-          case '-':
-            result = resta(num1, num2);
-            break;
-          case '*':
-            result = multiplica(num1, num2);
-            break;
-          case '/':
-            result = division(num1, num2);
-            break;
-          default:
-            result = 0.0;
-        }
-        display = result.toString();
-        /*} catch (e) {
-          showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: Text('Error'),
-                content: Text(
-                  e.toString(),
-                ), // Mostrará "Division en 0, no se puede realizar"
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text('OK'),
-                  ),
-                ],
-              );
-            },
-          );
-          return; // No cambies display
-        }*/
-        operation = '';
+      if (mostrarResultadoFinal && RegExp(r'[0-9]').hasMatch(valor)) {
+        expresion = valor;
+        mostrarResultadoFinal = false;
+      } else if (mostrarResultadoFinal && !RegExp(r'[0-9]').hasMatch(valor)) {
+        mostrarResultadoFinal = false;
+        expresion += valor;
       } else {
-        display = display == '0' ? value : display + value;
+        expresion += valor;
+      }
+
+      final eval = evaluarExpresion(expresion);
+      resultadoPrevio = eval['resultado'] != null
+          ? formatearNumero(eval['resultado'])
+          : '';
+    });
+  }
+
+  void limpiar() {
+    setState(() {
+      expresion = '';
+      resultadoPrevio = '';
+      mostrarResultadoFinal = false;
+    });
+  }
+
+  void borrar() {
+    setState(() {
+      if (expresion.isNotEmpty) {
+        expresion = expresion.substring(0, expresion.length - 1);
+        mostrarResultadoFinal = false;
+        if (expresion.isEmpty) {
+          resultadoPrevio = '';
+        } else {
+          final eval = evaluarExpresion(expresion);
+          resultadoPrevio = eval['resultado'] != null
+              ? formatearNumero(eval['resultado'])
+              : '';
+        }
       }
     });
+  }
+
+  void calcularResultado() {
+    setState(() {
+      final eval = evaluarExpresion(expresion);
+      if (eval['resultado'] != null) {
+        expresion = formatearNumero(eval['resultado']);
+        resultadoPrevio = '';
+        mostrarResultadoFinal = true;
+      } else {
+        expresion = eval['error'] ?? 'Error';
+        resultadoPrevio = '';
+      }
+    });
+  }
+
+  Widget buildBoton(String texto, {Color? color, int flex = 1}) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.all(6.0),
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color ?? Colors.grey[850],
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          onPressed: () {
+            if (texto == 'C') {
+              limpiar();
+            } else if (texto == '⌫') {
+              borrar();
+            } else if (texto == '=') {
+              calcularResultado();
+            } else {
+              agregarValor(texto);
+            }
+          },
+          child: Text(
+            texto,
+            style: const TextStyle(fontSize: 24, color: Colors.white),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Calculadora TDD')),
-      body: Column(
-        children: [
-          Expanded(
-            child: Container(
-              alignment: Alignment.centerRight,
-              padding: EdgeInsets.all(20),
-              child: Text(display, style: TextStyle(fontSize: 48)),
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                alignment: Alignment.bottomRight,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      expresion,
+                      style: const TextStyle(fontSize: 36, color: Colors.white),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      resultadoPrevio,
+                      style: const TextStyle(fontSize: 28, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          Row(
-            children: [
-              buildButton('7'),
-              buildButton('8'),
-              buildButton('9'),
-              buildButton('/'),
-            ],
-          ),
-          Row(
-            children: [
-              buildButton('4'),
-              buildButton('5'),
-              buildButton('6'),
-              buildButton('*'),
-            ],
-          ),
-          Row(
-            children: [
-              buildButton('1'),
-              buildButton('2'),
-              buildButton('3'),
-              buildButton('-'),
-            ],
-          ),
-          Row(
-            children: [
-              buildButton('0'),
-              buildButton('C'),
-              buildButton('='),
-              buildButton('+'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget buildButton(String text) {
-    return Expanded(
-      child: ElevatedButton(
-        onPressed: () => onButtonPressed(text),
-        child: Text(text, style: TextStyle(fontSize: 24)),
+            Column(
+              children: [
+                Row(
+                  children: [
+                    buildBoton('C', color: Colors.red),
+                    buildBoton('⌫', color: Colors.orangeAccent),
+                    buildBoton('%', color: Colors.blueGrey),
+                    buildBoton('/', color: Colors.blueGrey),
+                  ],
+                ),
+                Row(
+                  children: [
+                    buildBoton('7'),
+                    buildBoton('8'),
+                    buildBoton('9'),
+                    buildBoton('*', color: Colors.blueGrey),
+                  ],
+                ),
+                Row(
+                  children: [
+                    buildBoton('4'),
+                    buildBoton('5'),
+                    buildBoton('6'),
+                    buildBoton('-', color: Colors.blueGrey),
+                  ],
+                ),
+                Row(
+                  children: [
+                    buildBoton('1'),
+                    buildBoton('2'),
+                    buildBoton('3'),
+                    buildBoton('+', color: Colors.blueGrey),
+                  ],
+                ),
+                Row(
+                  children: [
+                    buildBoton('0', flex: 2),
+                    buildBoton('.'),
+                    buildBoton('=', color: Colors.green, flex: 2),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
