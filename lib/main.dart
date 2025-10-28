@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'calculator.dart';
+import 'package:calculadora4/calculator_controller.dart';
 
 void main() {
   runApp(const CalculadoraApp());
@@ -27,67 +27,7 @@ class CalculadoraScreen extends StatefulWidget {
 }
 
 class _CalculadoraScreenState extends State<CalculadoraScreen> {
-  String expresion = '';
-  String resultadoPrevio = '';
-  bool mostrarResultadoFinal = false;
-
-  void agregarValor(String valor) {
-    setState(() {
-      if (mostrarResultadoFinal && RegExp(r'[0-9]').hasMatch(valor)) {
-        expresion = valor;
-        mostrarResultadoFinal = false;
-      } else if (mostrarResultadoFinal && !RegExp(r'[0-9]').hasMatch(valor)) {
-        mostrarResultadoFinal = false;
-        expresion += valor;
-      } else {
-        expresion += valor;
-      }
-
-      final eval = evaluarExpresion(expresion);
-      resultadoPrevio = eval['resultado'] != null
-          ? formatearNumero(eval['resultado'])
-          : '';
-    });
-  }
-
-  void limpiar() {
-    setState(() {
-      expresion = '';
-      resultadoPrevio = '';
-      mostrarResultadoFinal = false;
-    });
-  }
-
-  void borrar() {
-    setState(() {
-      if (expresion.isNotEmpty) {
-        expresion = expresion.substring(0, expresion.length - 1);
-        mostrarResultadoFinal = false;
-        if (expresion.isEmpty) {
-          resultadoPrevio = '';
-        } else {
-          final eval = evaluarExpresion(expresion);
-          resultadoPrevio = eval['resultado'] != null
-              ? formatearNumero(eval['resultado'])
-              : '';
-        }
-      }
-    });
-  }
-
-  void calcularResultado() {
-    setState(() {
-      final eval = evaluarExpresion(expresion);
-      if (eval['resultado'] != null) {
-        expresion = formatearNumero(eval['resultado']);
-        resultadoPrevio = '';
-        mostrarResultadoFinal = true;
-      } else {
-        expresion = eval['error'] ?? 'Error';
-        resultadoPrevio = '';
-      }
-    });
-  }
+  final controller = CalculatorController();
 
   Widget buildBoton(String texto, {Color? color, int flex = 1}) {
     return Expanded(
@@ -103,15 +43,17 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
             ),
           ),
           onPressed: () {
-            if (texto == 'C') {
-              limpiar();
-            } else if (texto == '⌫') {
-              borrar();
-            } else if (texto == '=') {
-              calcularResultado();
-            } else {
-              agregarValor(texto);
-            }
+            setState(() {
+              if (texto == 'C') {
+                controller.limpiar();
+              } else if (texto == '⌫') {
+                controller.borrar();
+              } else if (texto == '=') {
+                controller.calcularResultado();
+              } else {
+                controller.agregarValor(texto);
+              }
+            });
           },
           child: Text(
             texto,
@@ -129,6 +71,93 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            /// HISTORIAL DE OPERACIONES
+            // HISTORIAL - se mostrará justo arriba del resultado
+            if (controller.historial.isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.only(top: 8, left: 16, right: 16),
+                alignment: Alignment.centerRight,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Encabezado con botón limpiar historial
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        const Text(
+                          'Historial',
+                          style: TextStyle(color: Colors.grey, fontSize: 18),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              controller.limpiarHistorial();
+                            });
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            child: const Icon(
+                              Icons.delete_forever,
+                              color: Colors.redAccent,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    /*// Operaciones anteriores (si existen)
+                    ...controller.historial.skip(1).map((op) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '${op['expresion']} = ${op['resultado']}',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      );*/
+                    // Operaciones anteriores (interactivas)
+                    ...controller.historial.skip(1).map((op) {
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            controller.expresion = op['expresion']!;
+                            controller.mostrarResultadoFinal = false;
+                            controller.resultadoPrevio = op['resultado']!;
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            '${op['expresion']} = ${op['resultado']}',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ),
+              ),
+
+            ///PANTALLA DE LA CALCULADORA
             Expanded(
               child: Container(
                 alignment: Alignment.bottomRight,
@@ -138,18 +167,20 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      expresion,
+                      controller.expresion,
                       style: const TextStyle(fontSize: 36, color: Colors.white),
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      resultadoPrevio,
+                      controller.resultadoPrevio,
                       style: const TextStyle(fontSize: 28, color: Colors.grey),
                     ),
                   ],
                 ),
               ),
             ),
+
+            // Botones de la calculadora
             Column(
               children: [
                 Row(
