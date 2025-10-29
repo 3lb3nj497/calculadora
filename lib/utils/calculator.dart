@@ -54,11 +54,13 @@ Map<String, dynamic> evaluarExpresion(String expr) {
 
 // 🔢 Formatear número sin decimales innecesarios
 String formatearNumero(double num) {
+  // Si el número es entero, mostramos sin decimales
   if (num == num.roundToDouble()) {
     return num.toInt().toString();
   } else {
-    return num.toStringAsFixed(
-      6,
-    ).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+    // Si es decimal, mostramos solo los decimales necesarios
+    return num.toStringAsFixed(6) // máx. 6 decimales
+        .replaceFirst(RegExp(r'0+$'), '') // elimina ceros al final
+        .replaceFirst(RegExp(r'\.$'), ''); // elimina punto final si queda
   }
 }
